@@ -1,51 +1,115 @@
 <!DOCTYPE html>
-<html lang="hi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TCL PRO 2026 LIVE</title>
+<script src="https://cdn.tailwindcss.com"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-body{background:#020617;color:#fff}.nav{display:flex;gap:6px;padding:10px;background:#0f172a;overflow:auto;position:sticky;top:0}
-.nav button{padding:10px 14px;border:none;border-radius:8px;background:#1e293b;color:#fff;font-weight:700;cursor:pointer;white-space:nowrap}
-.nav button.active{background:#38bdf8;color:#000}.page{display:none;padding:16px;max-width:900px;margin:auto}.page.active{display:block}
-.card{background:#f8fafc;color:#0f172a;padding:16px;border-radius:12px;margin-top:12px}
-input,select,button.w{width:100%;padding:12px;margin-top:8px;border-radius:8px;border:1px solid #cbd5e1}
-button.w{background:#38bdf8;border:none;font-weight:800;cursor:pointer}
-.list{display:grid;gap:10px;margin-top:12px}.item{background:#fff;color:#000;padding:12px;border-radius:10px;display:flex;justify-content:space-between}
-.badge{padding:4px 8px;border-radius:20px;background:#e2e8f0;font-size:12px}
-</style></head><body>
-<div class="nav">
-<button onclick="show('create')" id="b-create" class="active">1 Create</button>
-<button onclick="show('home')" id="b-home">2 Home</button>
-<button onclick="show('team')" id="b-team">3 Team</button>
-<button onclick="show('players')" id="b-players">4 Players</button>
-<button onclick="show('bracket')" id="b-bracket">5 Bracket</button>
-<button onclick="show('live')" id="b-live">6 Live KING</button>
-<button onclick="show('admin')" id="b-admin">7 Admin</button>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Inter:wght@600;800&display=swap');
+body{font-family:'Inter',sans-serif;background:#020617;color:white}
+.oswald{font-family:'Oswald',sans-serif}
+</style>
+</head>
+<body class="p-2 md:p-4">
+<div class="max-w-6xl mx-auto">
+<div class="bg-[#0f172a] rounded-2xl border border-slate-800 p-3 flex justify-between items-center">
+<div class="flex gap-2"><input id="teamA" value="TEAM A" class="bg-black border border-slate-700 rounded px-2 py-1 w-24 font-bold"><span class="text-slate-500 py-1">VS</span><input id="teamB" value="TEAM B" class="bg-black border border-slate-700 rounded px-2 py-1 w-24 font-bold"></div>
+<button id="liveBtn" class="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-full font-black">GO LIVE 🔴</button>
 </div>
-<div id="create" class="page active"><h2>Create Tournament</h2><div class="card"><input id="tName" placeholder="Tournament Name"><input id="tPlace" placeholder="Place"><button class="w" onclick="createT()">Create</button></div></div>
-<div id="home" class="page"><h2>Home</h2><div id="homeList" class="list"></div></div>
-<div id="team" class="page"><h2>Teams</h2><div class="card"><input id="teamName" placeholder="Team Name"><button class="w" onclick="addTeam()">Add Team</button></div><div id="teamList" class="list"></div></div>
-<div id="players" class="page"><h2>Players</h2><div class="card"><select id="pTeam"></select><input id="pName" placeholder="Player Name"><select id="pRole"><option>C</option><option>VC</option><option>WK</option><option>BAT</option><option>BOWL</option></select><button class="w" onclick="addPlayer()">Add Player</button></div><div id="playerList" class="list"></div></div>
-<div id="bracket" class="page"><h2>Bracket</h2><div id="bracketList" class="list"></div></div>
-<div id="live" class="page"><h2>🔴 LIVE</h2><div class="card"><h3 id="liveScore">0 / 0 (0.0)</h3><p id="liveInfo">Ready</p><div style="display:flex;gap:8px"><button class="w" onclick="score(1)">+1</button><button class="w" onclick="score(4)">+4</button><button class="w" onclick="score(6)">+6</button><button class="w" onclick="out()">OUT</button></div><button class="w" style="background:#22c55e" onclick="goLive()">GO LIVE</button></div></div>
-<div id="admin" class="page"><h2>Admin</h2><div class="card" id="loginBox"><input type="password" id="pass" placeholder="Password 1806"><button class="w" onclick="adminLogin()">Login</button><p id="aMsg"></p></div><div class="card" id="adminBox" style="display:none"><h3>Welcome Boss</h3><button class="w" style="background:#ef4444;color:#fff" onclick="clearAll()">Clear All</button><button class="w" onclick="logout()">Logout</button></div></div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+<div class="bg-[#0f172a] rounded-2xl p-3 border border-slate-800">
+<div class="flex justify-between"><h3 id="batTeamName" class="oswald text-xl">TEAM A</h3><span id="score" class="text-3xl font-black">0-0</span></div>
+<p id="overs" class="text-slate-400 text-sm">0.0 Overs | CRR 0.00</p>
+<div class="grid grid-cols-4 gap-2 mt-3">
+<button onclick="addRun(0)" class="bg-slate-800 py-3 rounded-xl font-bold">0</button>
+<button onclick="addRun(1)" class="bg-slate-800 py-3 rounded-xl font-bold">1</button>
+<button onclick="addRun(2)" class="bg-slate-800 py-3 rounded-xl font-bold">2</button>
+<button onclick="addRun(3)" class="bg-slate-800 py-3 rounded-xl font-bold">3</button>
+<button onclick="addRun(4)" class="bg-blue-600 py-3 rounded-xl font-bold">4</button>
+<button onclick="addRun(6)" class="bg-purple-600 py-3 rounded-xl font-bold">6</button>
+<button onclick="addWicket()" class="bg-red-600 py-3 rounded-xl font-bold">W</button>
+<button onclick="addRun(1,true)" class="bg-orange-600 py-3 rounded-xl font-bold">WD</button>
+</div>
+<button onclick="undo()" class="w-full mt-3 bg-slate-900 py-2 rounded-xl text-sm">UNDO</button>
+</div>
+
+<div class="md:col-span-2 bg-black rounded-2xl border-4 border-slate-800 overflow-hidden relative h-[380px] flex flex-col justify-center items-center">
+<div id="liveBadge" class="hidden absolute top-3 left-3 bg-red-600 px-3 py-1 rounded-full text-xs font-black animate-pulse">● LIVE SYNC ON</div>
+<h1 id="mainScore" class="oswald text-8xl">0-0</h1>
+<p id="mainOvers" class="text-slate-400">0.0 (0) | CRR 0.00</p>
+<div id="thisOver" class="flex gap-2 mt-4"></div>
+<p class="absolute bottom-2 text-[10px] text-slate-600">Laptop se control karo | Mobile/Link pe Auto Live</p>
+</div>
+</div>
+
+<p id="status" class="text-center text-xs mt-3 text-green-400">Firebase Connected: tcl-live-97</p>
+</div>
+
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-const firebaseConfig = { apiKey: "AIzaSyC", authDomain: "tcl-live-2026.firebaseapp.com", databaseURL: "https://tcl-live-2026-default-rtdb.firebaseio.com", projectId: "tcl-live-2026", appId: "1:123:web:abc" };
-const app = initializeApp(firebaseConfig); const db = getDatabase(app);
-let data = JSON.parse(localStorage.getItem('tcl')||'{"tournaments":[],"teams":[],"players":[],"live":{"r":0,"w":0,"o":0,"on":false}}');
-function save(){localStorage.setItem('tcl',JSON.stringify(data));renderAll()}
-window.show=function(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById(id).classList.add('active');document.getElementById('b-'+id).classList.add('active')}
-window.createT=function(){if(!tName.value)return;data.tournaments.push({name:tName.value,place:tPlace.value});tName.value='';tPlace.value='';save();show('home')}
-window.addTeam=function(){if(!teamName.value)return;data.teams.push({name:teamName.value});teamName.value='';save()}
-window.addPlayer=function(){if(!pName.value)return;data.players.push({name:pName.value,team:pTeam.value,role:pRole.value});pName.value='';save()}
-window.score=function(r){data.live.r+=r;data.live.o+=0.1;save();if(data.live.on)set(ref(db,'live/score'),data.live)}
-window.out=function(){data.live.w++;save();if(data.live.on)set(ref(db,'live/score'),data.live)}
-window.goLive=function(){data.live.on=true;set(ref(db,'live/score'),data.live);alert('LIVE ON BOSS!')}
-window.adminLogin=function(){if(pass.value==="1806"){localStorage.setItem('ok','1');loginBox.style.display='none';adminBox.style.display='block'}else{aMsg.innerText='Galat'}}
-window.logout=function(){localStorage.removeItem('ok');location.reload()}
-window.clearAll=function(){if(confirm('Delete?')){localStorage.clear();location.reload()}}
-function renderAll(){homeList.innerHTML=data.tournaments.map(t=>`<div class=item><b>${t.name}</b><span class=badge>${t.place}</span></div>`).join('')||'Empty';teamList.innerHTML=data.teams.map(t=>`<div class=item>${t.name}</div>`).join('');pTeam.innerHTML=data.teams.map(t=>`<option>${t.name}</option>`).join('');playerList.innerHTML=data.players.map(p=>`<div class=item>${p.name}-${p.team}<span class=badge>${p.role}</span></div>`).join('');bracketList.innerHTML=data.teams.length<2?'Add Teams':data.teams.map((t,i)=>i%2==0&&data.teams[i+1]?`<div class=item>${t.name} VS ${data.teams[i+1].name}</div>`:'').join('');liveScore.innerText=`${data.live.r}/${data.live.w} (${data.live.o.toFixed(1)})`;}
-renderAll(); if(localStorage.getItem('ok')==='1'){loginBox.style.display='none';adminBox.style.display='block'}
-onValue(ref(db,'live/score'),s=>{if(s.exists()){let v=s.val();liveScore.innerText=`${v.r}/${v.w} (${Number(v.o).toFixed(1)})`;liveInfo.innerText=v.on?'🔴 LIVE':'Ready'}});
-</script></body></html>
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAjbjMJa3EF0695zwbFZDo00tULrQd-Ux8",
+  authDomain: "tcl-live-97.firebaseapp.com",
+  databaseURL: "https://tcl-live-97-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "tcl-live-97",
+  storageBucket: "tcl-live-97.firebasestorage.app",
+  messagingSenderId: "657997610797",
+  appId: "1:657997610797:web:851cd00fc197fafa4bdda4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const matchRef = ref(db, 'tcl/live/match1');
+
+let runs=0, wickets=0, balls=0, history=[], overBalls=[], crr=0, isLive=false;
+
+window.addRun = (r,isWide=false)=>{
+ history.push({runs,wickets,balls,overBalls:[...overBalls]});
+ if(!isWide){ if(r==4||r==6){runs+=r;balls++;} else if(r==0){balls++;} else {runs+=r;balls++;} overBalls.push(r==0?'•':r); } else {runs+=1; overBalls.push('WD');}
+ if(balls%6==0 && balls>0) overBalls=[];
+ updateUI(); pushLive();
+}
+window.addWicket = ()=>{
+ history.push({runs,wickets,balls,overBalls:[...overBalls]});
+ wickets++; balls++; overBalls.push('W'); updateUI(); pushLive();
+}
+window.undo = ()=>{
+ if(!history.length) return; let p=history.pop(); runs=p.runs; wickets=p.wickets; balls=p.balls; overBalls=p.overBalls; updateUI(); pushLive();
+}
+
+function updateUI(){
+ let ov = Math.floor(balls/6)+"."+(balls%6);
+ crr = balls>0? ((runs/(balls/6)).toFixed(2)) : "0.00";
+ document.getElementById('score').innerText=runs+"-"+wickets;
+ document.getElementById('mainScore').innerText=runs+"-"+wickets;
+ document.getElementById('overs').innerText=ov+" Overs | CRR "+crr;
+ document.getElementById('mainOvers').innerText=ov+" ("+balls+") | CRR "+crr;
+ document.getElementById('batTeamName').innerText=document.getElementById('teamA').value;
+ document.getElementById('thisOver').innerHTML=overBalls.map(b=>`<span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${b=='W'?'bg-red-600':b==4||b==6?'bg-blue-600':'bg-slate-800'}">${b}</span>`).join('');
+}
+
+function pushLive(){
+ if(!isLive) return;
+ set(matchRef, { teamA: document.getElementById('teamA').value, teamB: document.getElementById('teamB').value, runs, wickets, balls, overBalls, crr, live:true, updated: Date.now() });
+}
+
+document.getElementById('liveBtn').onclick = ()=>{
+ isLive=!isLive;
+ document.getElementById('liveBtn').innerText=isLive? "LIVE ON ✅" : "GO LIVE 🔴";
+ document.getElementById('liveBadge').classList.toggle('hidden',!isLive);
+ document.getElementById('status').innerText=isLive? "● LIVE: Laptop se control ho raha hai" : "Offline";
+ if(isLive) pushLive();
+};
+
+// Listen for live updates (for viewers)
+onValue(matchRef, (snap)=>{
+ const d=snap.val(); if(!d) return;
+ if(!isLive){ runs=d.runs; wickets=d.wickets; balls=d.balls; overBalls=d.overBalls||[]; updateUI(); document.getElementById('teamA').value=d.teamA; document.getElementById('teamB').value=d.teamB; }
+});
+updateUI();
+</script>
+</body>
+</html>
