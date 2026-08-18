@@ -860,7 +860,39 @@
             function askAdmin() { let v = prompt('Code:'); if (v === ADMIN_CODE) { document.getElementById('lk7').style.display = 'none'; document.getElementById('real7').style.display = 'block'; go(7); } else if (v) alert('Wrong'); }
             function unlockAdmin() { if (document.getElementById('ps7').value === ADMIN_CODE) { document.getElementById('lk7').style.display = 'none'; document.getElementById('real7').style.display = 'block'; renderAdmin(); } else alert('Wrong'); }
             function loadScoreTourSel() { tours = JSON.parse(localStorage.getItem('tournaments100') || '[]'); let scChanged = false; tours.forEach(t => { if (!t.scoringCode) { t.scoringCode = genCode(); scChanged = true; } }); if (scChanged) localStorage.setItem('tournaments100', JSON.stringify(tours)); let s = document.getElementById('scoreTourSel'); let a = tours.filter(t => t.status === 'approved'); if (!a.length) { s.innerHTML = '<option>No Approved</option>'; return; } s.innerHTML = '<option value="">-- Select Tournament --</option>' + a.map(t => `<option value="${t.id}">${t.name}</option>`).join(''); }
-            function refreshScoringTeams() { if (!SCORE_TID) return; let t = tours.find(x => x.id == SCORE_TID); let joined = t.joined || []; let list = joined.length ? teams.filter(tm => joined.includes(tm.name)) : teams.filter(tm => tm.status !== 'pending'); let o = list.map((tm, i) => `<option value=${i}>${tm.name}</option>`).join(''); document.getElementById('batT').innerHTML = o || '<option>No Team</option>'; document.getElementById('bowlT').innerHTML = o || '<option>No Team</option>'; if (list.length > 1) document.getElementById('bowlT').selectedIndex = 1; cur = { r: 0, w: 0, ov: 0, b: 0, balls: [], batters: {}, bowlers: {}, winner: '', overBalls: [] }; hist = []; inningsData = { innings1: null, current: 1, target: 0 }; initBatters(); onBowl(); upd(); }
+            function refreshScoringTeams() {
+                if (!SCORE_TID) return;
+                let t = tours.find(x => x.id == SCORE_TID);
+                let joined = t.joined || [];
+                let list = joined.length ? teams.filter(tm => joined.includes(tm.name)) : teams.filter(tm => tm.status !== 'pending');
+                let o = list.map((tm, i) => `<option value=${i}>${tm.name}</option>`).join('');
+                document.getElementById('batT').innerHTML = o || '<option>No Team</option>';
+                document.getElementById('bowlT').innerHTML = o || '<option>No Team</option>';
+                if (list.length > 1) document.getElementById('bowlT').selectedIndex = 1;
+                let saved = null;
+                try { let all = JSON.parse(localStorage.getItem('liveMatches') || '{}'); saved = all[SCORE_TID] || null; } catch (e) { saved = null; }
+                let hasProgress = saved && (saved.r || saved.w || saved.ov || saved.b || (saved.balls && saved.balls.length));
+                if (hasProgress) {
+                    cur = { r: saved.r || 0, w: saved.w || 0, ov: saved.ov || 0, b: saved.b || 0, balls: saved.balls || [], overBalls: (saved.balls || []).slice(-(saved.b || 0)), batters: saved.batters || {}, bowlers: saved.bowlers || {}, winner: saved.winner || '' };
+                    inningsData = { innings1: saved.innings1 || null, current: saved.innings || 1, target: saved.target || 0 };
+                    hist = [];
+                    let batIdx = [...document.getElementById('batT').options].findIndex(op => op.textContent === saved.batTeam);
+                    if (batIdx > -1) document.getElementById('batT').selectedIndex = batIdx;
+                    let bowlIdx = [...document.getElementById('bowlT').options].findIndex(op => op.textContent === saved.bowlTeam);
+                    if (bowlIdx > -1) document.getElementById('bowlT').selectedIndex = bowlIdx;
+                    initBatters();
+                    onBowl();
+                    if (saved.striker) document.getElementById('stk').value = saved.striker;
+                    if (saved.nonStriker) document.getElementById('nstk').value = saved.nonStriker;
+                    if (saved.winner) { let wd = document.getElementById('winnerDisplay'); wd.style.display = 'block'; wd.innerText = '🏆 ' + saved.winner; }
+                    upd();
+                } else {
+                    cur = { r: 0, w: 0, ov: 0, b: 0, balls: [], batters: {}, bowlers: {}, winner: '', overBalls: [] };
+                    hist = [];
+                    inningsData = { innings1: null, current: 1, target: 0 };
+                    initBatters(); onBowl(); upd();
+                }
+            }
             function unlockScore() { let tid = document.getElementById('scoreTourSel').value, ip = document.getElementById('ps8').value.trim(); if (!tid) return alert('Select Tournament'); let t = tours.find(x => x.id == tid); if (!t || (ip !== t.scoringCode && ip !== ADMIN_CODE)) { alert('Wrong Code! Contact: rahilreza18@gmail.com'); return; } SCORE_TID = tid; document.getElementById('lk8').style.display = 'none'; let re = document.getElementById('real8'); re.style.display = 'block'; re.classList.add('show'); document.getElementById('scoringTourName').innerText = t.name; refreshScoringTeams(); }
             function createT() { let n = document.getElementById('tname').value.trim(); if (!n) return alert('Name likho'); let orgN = document.getElementById('orgName').value.trim(), orgM = document.getElementById('orgMobile').value.trim(); if (!orgN || orgM.length != 10) return alert('Organizer Name + 10 digit Mobile'); let sc = genCode(); let d = { id: Date.now(), name: n, teams: parseInt(document.getElementById('tTeams').value), fee: document.getElementById('tfee').value, date: document.getElementById('tdate').value, time: document.getElementById('ttime').value, addr: document.getElementById('taddr').value, prize: document.getElementById('tprize').value, prize2: document.getElementById('tprize2').value, overs: document.getElementById('tOvers').value, mobile: document.getElementById('tmob').value, orgName: orgN, orgMobile: orgM, joined: [], status: 'pending', scoringCode: sc }; pendings = JSON.parse(localStorage.getItem('pendings') || '[]'); pendings.push(d); localStorage.setItem('pendings', JSON.stringify(pendings)); alert('Submitted to Admin'); updateBadge(); document.getElementById('tname').value = ''; document.getElementById('tfee').value = ''; document.getElementById('taddr').value = ''; document.getElementById('tmob').value = ''; document.getElementById('tprize').value = ''; document.getElementById('tprize2').value = ''; document.getElementById('orgName').value = ''; document.getElementById('orgMobile').value = ''; }
             function dedupeById(arr) { let seen = new Set(), out = []; (arr || []).forEach(x => { if (!seen.has(x.id)) { seen.add(x.id); out.push(x); } }); return out; }
