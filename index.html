@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>TCL SCORING FIXED FINAL</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -603,7 +603,8 @@
                             <b style="color:#22c55e;font-size:12px">👤 <span id="loggedOrgMob"></span> • <span
                                     id="loggedOrgCode" style="color:#facc15"></span></b><button class="b"
                                 style="background:#ef4444;color:#fff;padding:4px 9px"
-                                onclick="orgLogout()">Logout</button></div>
+                                onclick="orgLogout()">Logout</button>
+                        </div>
                         <div style="background:#08140a;border:1px solid #3b82f6;border-radius:10px;padding:8px">
                             <h3 style="margin:2px 0;color:#3b82f6;font-size:13px">Join Requests</h3>
                             <div id="organizerReqList"></div>
@@ -776,7 +777,8 @@
                             <div
                                 style="display:flex;justify-content:space-between;font-size:11px;background:#08140a;padding:8px;border-radius:7px;border:1px solid #2a4a2e;font-weight:700">
                                 <span><b id="bowlNameSmall" style="color:#3b82f6">-</b></span><span
-                                    id="bowlFigSmall">0-0 (0.0)</span></div>
+                                    id="bowlFigSmall">0-0 (0.0)</span>
+                            </div>
                         </div>
                     </div>
                     <div class="score-box">
@@ -809,14 +811,28 @@
                         OVER</button></div>
             </div>
         </div>
-        <script>const firebaseConfig = { databaseURL: "https://tcl-live-97-default-rtdb.asia-southeast1.firebasedatabase.app" };
+        <script>
+            // Project ID inferred from the original Realtime Database URL
+            // (tcl-live-97-default-rtdb -> project "tcl-live-97"). No apiKey was
+            // present in the original config; Firestore compat SDK works without
+            // one as long as Firestore security rules allow the required access.
+            const firebaseConfig = {
+                projectId: "tcl-pro-2026"    
+            };
             firebase.initializeApp(firebaseConfig);
-            const db = firebase.database();
-            const ROOT = db.ref('tcl_pro_2026_all_data');
-            function saveGenericToFirebase(k, v) { try { ROOT.child(k).set(v).catch(e => console.error('Firebase write failed', k, e)) } catch (e) { console.error('Firebase write failed', k, e) } }
+            const db = firebase.firestore();
+            const COLL_DOC = 'main';
+            function saveGenericToFirestore(k, v) { try { db.collection(k).doc(COLL_DOC).set({ data: v }).catch(e => console.error('Firestore write failed', k, e)) } catch (e) { console.error('Firestore write failed', k, e) } }
+            function firestoreBatchUpdate(updates) {
+                try {
+                    let batch = db.batch();
+                    Object.keys(updates).forEach(k => batch.set(db.collection(k).doc(COLL_DOC), { data: updates[k] }));
+                    return batch.commit().catch(e => { console.error('Firestore batch update failed', e); throw e; });
+                } catch (e) { console.error('Firestore batch update failed', e); return Promise.reject(e); }
+            }
             const _set = localStorage.setItem.bind(localStorage);
-            const SYNCED_KEYS = ['teamsArr', 'tournaments100', 'playersArr', 'pendings', 'brackets', 'liveMatch', 'liveMatches', 'organizerReqs', 'withdrawReqs', 'playerRemoveReqs'];
-            localStorage.setItem = (k, v) => { _set(k, v); if (!SYNCED_KEYS.includes(k)) return; try { saveGenericToFirebase(k, JSON.parse(v)) } catch (e) { saveGenericToFirebase(k, v) } };
+            const SYNCED_KEYS = ['teamsArr', 'tournaments100', 'pendings', 'brackets', 'organizerReqs', 'withdrawReqs', 'playerRemoveReqs'];
+            localStorage.setItem = (k, v) => { _set(k, v); if (!SYNCED_KEYS.includes(k)) return; try { saveGenericToFirestore(k, JSON.parse(v)) } catch (e) { saveGenericToFirestore(k, v) } };
             function renderAll() {
                 try { renderHome() } catch (e) { }
                 try { renderTeamsKeepSelection() } catch (e) { }
@@ -827,16 +843,24 @@
                 try { loadLiveTourSel() } catch (e) { }
             }
             window.renderAll = renderAll;
-            ['teamsArr', 'tournaments100', 'playersArr', 'pendings', 'brackets'].forEach(k => { ROOT.child(k).on('value', s => { if (s.exists()) { _set(k, JSON.stringify(s.val())); if (window.renderAll) renderAll() } }) });
-            let liveListenerRef = null, liveListenerTid = null;
+            SYNCED_KEYS.forEach(k => {
+                db.collection(k).doc(COLL_DOC).onSnapshot(snap => {
+                    if (snap.exists) {
+                        let val = snap.data().data;
+                        if (val === undefined) val = (k === 'brackets') ? {} : [];
+                        _set(k, JSON.stringify(val));
+                        if (window.renderAll) renderAll();
+                    }
+                }, err => console.error('Firestore listener error', k, err));
+            });
+            let liveUnsub = null, liveListenerTid = null;
             function attachLiveListener(tid) {
-                if (liveListenerRef) { try { liveListenerRef.off('value') } catch (e) { } liveListenerRef = null; liveListenerTid = null; }
+                if (liveUnsub) { try { liveUnsub() } catch (e) { } liveUnsub = null; liveListenerTid = null; }
                 if (!tid) { renderLivePage(); return; }
-                liveListenerRef = ROOT.child('liveMatches').child(tid);
                 liveListenerTid = tid;
-                liveListenerRef.on('value', s => {
+                liveUnsub = db.collection('liveMatches').doc(String(tid)).onSnapshot(s => {
                     try {
-                        let d = s.exists() ? s.val() : null;
+                        let d = s.exists ? s.data() : null;
                         let all = JSON.parse(localStorage.getItem('liveMatches') || '{}');
                         if (d) all[tid] = d; else delete all[tid];
                         _set('liveMatches', JSON.stringify(all));
@@ -896,7 +920,7 @@
             function unlockScore() { let tid = document.getElementById('scoreTourSel').value, ip = document.getElementById('ps8').value.trim(); if (!tid) return alert('Select Tournament'); let t = tours.find(x => x.id == tid); if (!t || (ip !== t.scoringCode && ip !== ADMIN_CODE)) { alert('Wrong Code! Contact: rahilreza18@gmail.com'); return; } SCORE_TID = tid; document.getElementById('lk8').style.display = 'none'; let re = document.getElementById('real8'); re.style.display = 'block'; re.classList.add('show'); document.getElementById('scoringTourName').innerText = t.name; refreshScoringTeams(); }
             function createT() { let n = document.getElementById('tname').value.trim(); if (!n) return alert('Name likho'); let orgN = document.getElementById('orgName').value.trim(), orgM = document.getElementById('orgMobile').value.trim(); if (!orgN || orgM.length != 10) return alert('Organizer Name + 10 digit Mobile'); let sc = genCode(); let d = { id: Date.now(), name: n, teams: parseInt(document.getElementById('tTeams').value), fee: document.getElementById('tfee').value, date: document.getElementById('tdate').value, time: document.getElementById('ttime').value, addr: document.getElementById('taddr').value, prize: document.getElementById('tprize').value, prize2: document.getElementById('tprize2').value, overs: document.getElementById('tOvers').value, mobile: document.getElementById('tmob').value, orgName: orgN, orgMobile: orgM, joined: [], status: 'pending', scoringCode: sc }; pendings = JSON.parse(localStorage.getItem('pendings') || '[]'); pendings.push(d); localStorage.setItem('pendings', JSON.stringify(pendings)); alert('Submitted to Admin'); updateBadge(); document.getElementById('tname').value = ''; document.getElementById('tfee').value = ''; document.getElementById('taddr').value = ''; document.getElementById('tmob').value = ''; document.getElementById('tprize').value = ''; document.getElementById('tprize2').value = ''; document.getElementById('orgName').value = ''; document.getElementById('orgMobile').value = ''; }
             function dedupeById(arr) { let seen = new Set(), out = []; (arr || []).forEach(x => { if (!seen.has(x.id)) { seen.add(x.id); out.push(x); } }); return out; }
-            function renderAdmin() { tours = JSON.parse(localStorage.getItem('tournaments100') || '[]'); pendings = JSON.parse(localStorage.getItem('pendings') || '[]'); let scChanged = false; let dedupedTours = dedupeById(tours); let dedupedPendings = dedupeById(pendings); if (dedupedTours.length !== tours.length || dedupedPendings.length !== pendings.length) { tours = dedupedTours; pendings = dedupedPendings; _set('tournaments100', JSON.stringify(tours)); _set('pendings', JSON.stringify(pendings)); ROOT.update({ tournaments100: tours, pendings: pendings }).catch(e => console.error('Dedupe sync failed', e)); } tours.forEach(t => { if (!t.scoringCode) { t.scoringCode = genCode(); scChanged = true; } }); if (scChanged) localStorage.setItem('tournaments100', JSON.stringify(tours)); let toursPending = tours.filter(t => t.status === 'pending'); let all = [...pendings, ...toursPending]; document.getElementById('pendCount').innerText = all.length; let pb = document.getElementById('pendingList'); pb.innerHTML = all.length ? all.map(p => { let isT = toursPending.includes(p); return `<div class=pending-box><div><b>🏆 ${p.name}</b><br><small>Org:${p.orgName}-${p.orgMobile} | Fees:${p.fee || 0} | Code:<span class=code-pill>${p.scoringCode}</span></small></div><div style="margin-top:6px;display:flex;gap:6px"><button style="background:#22c55e;color:#000;font-weight:900;padding:6px 12px;border:0;border-radius:7px" onclick="approveById(${p.id},${isT})">✅ APPROVE</button><button style="background:#ef4444;color:#fff;font-weight:900;padding:6px 10px;border:0;border-radius:7px" onclick="rejectById(${p.id},${isT})">❌ REJECT</button></div></div>` }).join('') : '<div style="text-align:center;opacity:.6">No Pending</div>'; let atl = document.getElementById('adminTourList'); let ap = tours.filter(t => t.status === 'approved'); atl.innerHTML = ap.length ? ap.reverse().map(t => `<div class=team-box><span>🏆 ${t.name} Org:${t.orgMobile}</span><span class=code-pill>${t.scoringCode}</span></div>`).join('') : 'No Approved'; updateBadge(); loadScoreTourSel(); }
+            function renderAdmin() { tours = JSON.parse(localStorage.getItem('tournaments100') || '[]'); pendings = JSON.parse(localStorage.getItem('pendings') || '[]'); let scChanged = false; let dedupedTours = dedupeById(tours); let dedupedPendings = dedupeById(pendings); if (dedupedTours.length !== tours.length || dedupedPendings.length !== pendings.length) { tours = dedupedTours; pendings = dedupedPendings; _set('tournaments100', JSON.stringify(tours)); _set('pendings', JSON.stringify(pendings)); firestoreBatchUpdate({ tournaments100: tours, pendings: pendings }).catch(e => console.error('Dedupe sync failed', e)); } tours.forEach(t => { if (!t.scoringCode) { t.scoringCode = genCode(); scChanged = true; } }); if (scChanged) localStorage.setItem('tournaments100', JSON.stringify(tours)); let toursPending = tours.filter(t => t.status === 'pending'); let all = [...pendings, ...toursPending]; document.getElementById('pendCount').innerText = all.length; let pb = document.getElementById('pendingList'); pb.innerHTML = all.length ? all.map(p => { let isT = toursPending.includes(p); return `<div class=pending-box><div><b>🏆 ${p.name}</b><br><small>Org:${p.orgName}-${p.orgMobile} | Fees:${p.fee || 0} | Code:<span class=code-pill>${p.scoringCode}</span></small></div><div style="margin-top:6px;display:flex;gap:6px"><button style="background:#22c55e;color:#000;font-weight:900;padding:6px 12px;border:0;border-radius:7px" onclick="approveById(${p.id},${isT})">✅ APPROVE</button><button style="background:#ef4444;color:#fff;font-weight:900;padding:6px 10px;border:0;border-radius:7px" onclick="rejectById(${p.id},${isT})">❌ REJECT</button></div></div>` }).join('') : '<div style="text-align:center;opacity:.6">No Pending</div>'; let atl = document.getElementById('adminTourList'); let ap = tours.filter(t => t.status === 'approved'); atl.innerHTML = ap.length ? ap.reverse().map(t => `<div class=team-box><span>🏆 ${t.name} Org:${t.orgMobile}</span><span class=code-pill>${t.scoringCode}</span></div>`).join('') : 'No Approved'; updateBadge(); loadScoreTourSel(); }
             let adminActionBusy = false;
             function approveById(id, isT) {
                 if (adminActionBusy) return;
@@ -921,7 +945,7 @@
                 _set('tournaments100', JSON.stringify(updates['tournaments100']));
                 if (updates['pendings']) _set('pendings', JSON.stringify(updates['pendings']));
                 renderAdmin(); renderHome();
-                ROOT.update(updates).catch(e => { console.error('Firebase approve update failed', e); alert('Approve failed to sync - check connection'); }).finally(() => { adminActionBusy = false; });
+                firestoreBatchUpdate(updates).catch(e => { console.error('Firestore approve update failed', e); alert('Approve failed to sync - check connection'); }).finally(() => { adminActionBusy = false; });
             }
             function rejectById(id, isT) {
                 if (adminActionBusy) return;
@@ -933,7 +957,7 @@
                 adminActionBusy = true;
                 _set(isT ? 'tournaments100' : 'pendings', JSON.stringify(isT ? updates['tournaments100'] : updates['pendings']));
                 renderAdmin();
-                ROOT.update(updates).catch(e => { console.error('Firebase reject update failed', e); alert('Reject failed to sync - check connection'); }).finally(() => { adminActionBusy = false; });
+                firestoreBatchUpdate(updates).catch(e => { console.error('Firestore reject update failed', e); alert('Reject failed to sync - check connection'); }).finally(() => { adminActionBusy = false; });
             }
             function updateBadge() { pendings = JSON.parse(localStorage.getItem('pendings') || '[]'); tours = JSON.parse(localStorage.getItem('tournaments100') || '[]'); let c = pendings.length + tours.filter(t => t.status === 'pending').length; let b = document.getElementById('adminBadge'); b.style.display = c > 0 ? 'inline' : 'none'; b.innerText = c; }
             function renderOrganizerAll() { if (!LOGGED_ORG_MOBILE) return; organizerReqs = JSON.parse(localStorage.getItem('organizerReqs') || '[]'); withdrawReqs = JSON.parse(localStorage.getItem('withdrawReqs') || '[]'); playerRemoveReqs = JSON.parse(localStorage.getItem('playerRemoveReqs') || '[]'); let my = tours.filter(t => t.orgMobile == LOGGED_ORG_MOBILE && (LOGGED_ORG_CODE === ADMIN_CODE || t.scoringCode == LOGGED_ORG_CODE)).map(t => t.id.toString()); let fj = organizerReqs.filter(r => my.includes(r.tId.toString())); document.getElementById('organizerReqList').innerHTML = fj.length ? fj.map(r => { let i = organizerReqs.indexOf(r); return `<div class=org-req><span>${r.tName} - ${r.teamName}</span><span><button class=b style="background:#22c55e;color:#000" onclick="orgApprove(${i})">OK</button> <button class=b style="background:#ef4444;color:#fff" onclick="orgReject(${i})">X</button></span></div>` }).join('') : '<div style="opacity:.5;text-align:center">No Requests</div>'; let fw = withdrawReqs.filter(w => my.includes(w.tId.toString())); document.getElementById('organizerWithdrawList').innerHTML = fw.length ? fw.map(w => { let i = withdrawReqs.indexOf(w); return `<div class=withdraw-req><span>${w.teamName}</span><span><button class=b style="background:#22c55e;color:#000" onclick="orgApproveWithdraw(${i})">OK</button> <button class=b style="background:#ef4444;color:#fff" onclick="orgRejectWithdraw(${i})">X</button></span></div>` }).join('') : '<div style="opacity:.5;text-align:center">No Withdraw</div>'; document.getElementById('organizerPlayerRemoveList').innerHTML = playerRemoveReqs.length ? playerRemoveReqs.map((pr, i) => `<div class=org-req><span>${pr.teamName}-${pr.playerName}</span><span><button class=b style="background:#22c55e" onclick="orgApprovePlayerRemove(${i})">OK</button> <button class=b style="background:#ef4444;color:#fff" onclick="orgRejectPlayerRemove(${i})">X</button></span></div>`).join('') : '<div style="opacity:.5;text-align:center">No Remove</div>'; }
@@ -991,7 +1015,7 @@
             function resetSc() { if (!confirm('Reset score?')) return; cur = { r: 0, w: 0, ov: 0, b: 0, balls: [], overBalls: [], batters: {}, bowlers: {}, winner: '' }; hist = []; inningsData = { innings1: null, current: 1, target: 0 }; document.getElementById('winnerDisplay').style.display = 'none'; initBatters(); onBowl(); upd(); saveLive(); }
             function declareWinner() { let w = prompt('Winner Team Name:'); if (!w) return; cur.winner = w; let wd = document.getElementById('winnerDisplay'); wd.style.display = 'block'; wd.innerText = 'WIN:' + w; saveLive(); }
             function upd() { document.getElementById('bigS').innerText = cur.r + '/' + cur.w; document.getElementById('ovTxt').innerText = cur.ov + '.' + cur.b; document.getElementById('ballTxt').innerText = cur.balls.length ? cur.balls.join(' ') : '-'; up1(); up2(); updateHead(); updateInningsUI(); }
-            function saveLive() { let bat = document.getElementById('batT')?.options[document.getElementById('batT').selectedIndex]?.textContent || 'Bat', bowl = document.getElementById('bowlT')?.options[document.getElementById('bowlT').selectedIndex]?.textContent || 'Bowl'; let data = { r: cur.r, w: cur.w, ov: cur.ov, b: cur.b, balls: cur.balls, batTeam: bat, bowlTeam: bowl, batters: cur.batters, bowlers: cur.bowlers, winner: cur.winner, target: inningsData.target, innings: inningsData.current, innings1: inningsData.innings1, striker: document.getElementById('stk').value, nonStriker: document.getElementById('nstk').value }; localStorage.setItem('liveMatch', JSON.stringify(data)); if (SCORE_TID) { let all = JSON.parse(localStorage.getItem('liveMatches') || '{}'); all[SCORE_TID] = data; all[SCORE_TID].tName = document.getElementById('scoringTourName')?.innerText || bat; _set('liveMatches', JSON.stringify(all)); ROOT.child('liveMatches').child(SCORE_TID).set(all[SCORE_TID]).catch(e => console.error('Firebase live save failed', e)); } }
+            function saveLive() { let bat = document.getElementById('batT')?.options[document.getElementById('batT').selectedIndex]?.textContent || 'Bat', bowl = document.getElementById('bowlT')?.options[document.getElementById('bowlT').selectedIndex]?.textContent || 'Bowl'; let data = { r: cur.r, w: cur.w, ov: cur.ov, b: cur.b, balls: cur.balls, batTeam: bat, bowlTeam: bowl, batters: cur.batters, bowlers: cur.bowlers, winner: cur.winner, target: inningsData.target, innings: inningsData.current, innings1: inningsData.innings1, striker: document.getElementById('stk').value, nonStriker: document.getElementById('nstk').value }; localStorage.setItem('liveMatch', JSON.stringify(data)); if (SCORE_TID) { let all = JSON.parse(localStorage.getItem('liveMatches') || '{}'); all[SCORE_TID] = data; all[SCORE_TID].tName = document.getElementById('scoringTourName')?.innerText || bat; _set('liveMatches', JSON.stringify(all)); db.collection('liveMatches').doc(String(SCORE_TID)).set(all[SCORE_TID]).catch(e => console.error('Firestore live save failed', e)); } }
             function switchInnings() { if (cur.r === 0 && !inningsData.innings1) return alert('Pehle run banao'); if (!inningsData.innings1) { inningsData.innings1 = { r: cur.r, w: cur.w, ov: cur.ov, b: cur.b, balls: [...cur.balls], batters: JSON.parse(JSON.stringify(cur.batters)), bowlers: JSON.parse(JSON.stringify(cur.bowlers)) }; inningsData.target = cur.r + 1; inningsData.current = 2; let be = document.getElementById('batT'), bo = document.getElementById('bowlT'); let ob = be.selectedIndex, oo = bo.selectedIndex; be.selectedIndex = oo; bo.selectedIndex = ob; cur = { r: 0, w: 0, ov: 0, b: 0, balls: [], overBalls: [], batters: {}, bowlers: {}, winner: '' }; hist = []; initBatters(); onBowl(); updateInningsUI(); upd(); saveLive(); alert('2nd Innings - Target:' + inningsData.target); } else { if (confirm('Reset to 1st Innings?')) { cur = { ...inningsData.innings1, balls: inningsData.innings1.balls || [], overBalls: inningsData.innings1.balls || [], batters: inningsData.innings1.batters || {}, bowlers: inningsData.innings1.bowlers || {} }; inningsData = { innings1: null, current: 1, target: 0 }; updateInningsUI(); upd(); saveLive(); } } }
             // ===== SCORING FIXED END =====
             function loadLiveTourSel() { tours = JSON.parse(localStorage.getItem('tournaments100') || '[]'); let s = document.getElementById('liveTourSel'); let a = tours.filter(t => t.status === 'approved'); s.innerHTML = '<option value="">-- Select Live --</option>' + a.map(t => `<option value="${t.id}">${t.name}</option>`).join(''); if (a.length && !LIVE_TID) { LIVE_TID = a[0].id.toString(); s.value = LIVE_TID; } attachLiveListener(LIVE_TID); }
