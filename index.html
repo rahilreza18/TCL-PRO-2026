@@ -817,7 +817,13 @@
             // present in the original config; Firestore compat SDK works without
             // one as long as Firestore security rules allow the required access.
             const firebaseConfig = {
-                projectId: "tcl-pro-2026"    
+                apiKey: "AIzaSyD3CfHlpiHhnjQnxgElbDbUuuhB-mkJAKA",
+                authDomain: "tcl-pro-live.firebaseapp.com",
+                projectId: "tcl-pro-live",
+                storageBucket: "tcl-pro-live.firebasestorage.app",
+                messagingSenderId: "164093487991",
+                appId: "1:164093487991:web:b94e7b892cfca38853cf72",
+                measurementId: "G-GGT0V27GZG"
             };
             firebase.initializeApp(firebaseConfig);
             const db = firebase.firestore();
