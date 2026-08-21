@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tcl.tenniscricketleague",
+      "sha256_cert_fingerprints": [
+        "D4:DE:21:73:7E:FA:38:74:49:4E:2E:4F:9B:7B:53:1D:FF:8D:53:AA:5E:C9:1A:C0:67:74:04:E7:4E:15:DE:A3"
+      ]
+    }
+  }
+]

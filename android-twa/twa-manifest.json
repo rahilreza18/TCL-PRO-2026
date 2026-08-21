@@ -1,0 +1,43 @@
+{
+  "packageId": "com.tcl.tenniscricketleague",
+  "host": "tcl-pro-live.web.app",
+  "name": "Tennis Cricket League Live & Scoring",
+  "launcherName": "TCL",
+  "display": "standalone",
+  "themeColor": "#15803D",
+  "themeColorDark": "#15803D",
+  "navigationColor": "#000000",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#000000",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#15803D",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://tcl-pro-live.web.app/icons/icon-512.png",
+  "maskableIconUrl": "https://tcl-pro-live.web.app/icons/icon-512-maskable.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "2",
+  "appVersionCode": 2,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://tcl-pro-live.web.app/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": [],
+  "appVersion": "2"
+}
